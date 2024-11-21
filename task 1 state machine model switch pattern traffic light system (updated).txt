@@ -1,0 +1,65 @@
+int red = 8;      
+int yellow = 10;  
+int green = 12;   
+
+// Enum for States
+enum TrafficLightState {
+  RED,
+  YELLOW_TO_GREEN,
+  GREEN,
+  YELLOW_TO_RED
+};
+
+// Current State
+TrafficLightState currentState = RED;
+
+void setup() {
+  // Initialize pins as outputs
+  pinMode(red, OUTPUT);
+  pinMode(yellow, OUTPUT);
+  pinMode(green, OUTPUT);
+
+  // Start in RED state
+  currentState = RED;
+}
+
+void loop() {
+  // Handle each state
+  switch (currentState) {
+    case RED:
+      // Turn on RED light
+      digitalWrite(red, HIGH);
+      digitalWrite(yellow, LOW);
+      digitalWrite(green, LOW);
+      delay(5000); // Wait 5 seconds
+      currentState = YELLOW_TO_GREEN; // Transition to the next state
+      break;
+
+    case YELLOW_TO_GREEN:
+      // Turn on YELLOW light (prepare to go)
+      digitalWrite(red, LOW);
+      digitalWrite(yellow, HIGH);
+      digitalWrite(green, LOW);
+      delay(5000);// Wait 2 seconds
+      currentState = GREEN; // Transition to the next state
+      break;
+
+    case GREEN:
+      // Turn on GREEN light
+      digitalWrite(red, LOW);
+      digitalWrite(yellow, LOW);
+      digitalWrite(green, HIGH);
+      delay(5000); // Wait 5 seconds
+      currentState = YELLOW_TO_RED; // Transition to the next state
+      break;
+
+    case YELLOW_TO_RED:
+      // Turn on YELLOW light (prepare to stop)
+      digitalWrite(red, LOW);
+      digitalWrite(yellow, HIGH);
+      digitalWrite(green, LOW);
+      delay(5000);// Wait 5seconds
+      currentState = RED; // Transition back to RED state
+      break;
+  }
+}

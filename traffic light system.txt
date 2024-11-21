@@ -1,0 +1,36 @@
+// Initialize lights: green AS CAR CAN GO; RED AS CAR SHOULD STOP;YELLOW PREPARE TO STOP
+int red = 8;           
+int green = 12;        
+int yellow = 10;
+void setup() {
+  pinMode(red, OUTPUT); 
+  pinMode(yellow, OUTPUT); 
+  pinMode(green, OUTPUT); 
+}
+
+void loop() {
+ Serial.println("Green Light for cars to go");
+  digitalWrite(green, HIGH);
+  delay(5000);
+  digitalWrite(yellow, LOW);
+  digitalWrite(red, LOW);
+  digitalWrite(green, LOW);
+  // Car traffic light turns from green to yellow
+    digitalWrite(yellow, HIGH);
+    Serial.println("Yellow light for cars - Prepare to stop");
+    delay(5000);
+    digitalWrite(yellow, LOW);
+  	digitalWrite(green,LOW);
+    digitalWrite(red, HIGH);
+	delay(5000);
+  	digitalWrite(red,LOW);
+  	digitalWrite(yellow, HIGH);
+    Serial.println("Yellow light for cars - Prepare to Go");
+   delay(5000);
+  digitalWrite(yellow, LOW);
+  	digitalWrite(red,LOW);
+    digitalWrite(green, HIGH);
+    Serial.println("Green light for cars - Cars can go");
+    delay(5000);
+    } 
+

@@ -1,0 +1,39 @@
+// Pin Assignments for Arduino 2
+int pushButton = 2;      // Push button for pedestrian request
+int pedestrianGreen = 9;  // Pedestrian green light
+int pedestrianRed = 11;   // Pedestrian red light
+
+bool pedestrianRequest = false;  // Track if the pedestrian requested to cross
+bool lastButtonState = HIGH;
+bool currentButtonState = HIGH;
+
+void setup() {
+  pinMode(pushButton, INPUT_PULLUP);  // Push button as input with pull-up resistor
+  pinMode(pedestrianGreen, OUTPUT);   // Pedestrian green light
+  pinMode(pedestrianRed, OUTPUT);     // Pedestrian red light
+  
+  digitalWrite(pedestrianGreen, LOW);  // Initial state: Pedestrian red
+  digitalWrite(pedestrianRed, HIGH);   // Initial state: Pedestrian red
+
+  Serial.begin(9600);
+}
+
+void loop() {
+  currentButtonState = digitalRead(pushButton);
+  
+  if (currentButtonState == LOW && lastButtonState == HIGH) {
+    pedestrianRequest = true;
+    Serial.println("Pedestrian button pressed! Request to cross.");
+  }
+
+  lastButtonState = currentButtonState;
+  if (pedestrianRequest) {
+    digitalWrite(pedestrianGreen, HIGH);
+    digitalWrite(pedestrianRed, LOW);
+  } else {
+    digitalWrite(pedestrianGreen, LOW);
+    digitalWrite(pedestrianRed, HIGH);
+  }
+  
+  delay(100); // Debounce delay
+}

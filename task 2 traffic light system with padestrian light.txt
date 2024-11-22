@@ -1,43 +1,44 @@
-int red = 8;            // Red light for cars
-int yellow = 10;        // Yellow light for cars
-int green = 12;         // Green light for cars
+// Pin Assignments
+int red = 8;            // Car red light
+int yellow = 10;        // Car yellow light
+int green = 12;         // Car green light
 int pedestrianGreen = 9; // Pedestrian green light
 int pedestrianRed = 11;  // Pedestrian red light
 int pushButton = 6;      // Push button for pedestrian request
 
-// Enum for States with Original State Names
+// Enum for Traffic Light States
 enum TrafficLightState {
-  RED,                // Red light for cars
-  YELLOW_TO_GREEN,    // Transitioning from red to green (yellow light)
-  GREEN,              // Green light for cars
-  YELLOW_TO_RED       // Transitioning from green to red (yellow light)
+  RED,                // Cars stop, pedestrians wait
+  YELLOW_TO_GREEN,    // Transition to cars go
+  GREEN,              // Cars go, pedestrians cross
+  YELLOW_TO_RED       // Transition to cars stop
 };
 
-// Current state of the traffic light
-TrafficLightState currentState = RED;
+// State Variables
+TrafficLightState currentState = RED; // Start with cars stopped
+unsigned long previousMillis = 0;     // Tracks the time since the last state change
+unsigned long stateDuration = 0;      // Duration of the current state
+unsigned long buttonPressTime = 0;    // Tracks button press time
+const unsigned long debounceDelay = 300; // Debounce delay for button
 
-// Timing variables
-unsigned long previousMillis = 0;
-unsigned long stateDuration = 0; // Duration for the current state
-unsigned long buttonPressTime = 0;
-unsigned long debounceDelay = 300; // Debounce time for button press
-
-// Button state and request tracking
-bool pedestrianRequest = false;
-bool lastButtonState = HIGH; // Button was not pressed initially
-bool currentButtonState = HIGH;
+// Button State
+bool pedestrianRequest = false; // Tracks if a pedestrian has requested to cross
+bool lastButtonState = HIGH;    // Previous button state
+bool currentButtonState = HIGH; // Current button state
 
 void setup() {
-  pinMode(red, OUTPUT);        // Initialize car red light
-  pinMode(yellow, OUTPUT);     // Initialize car yellow light
-  pinMode(green, OUTPUT);      // Initialize car green light
-  pinMode(pedestrianGreen, OUTPUT);  // Initialize pedestrian green light
-  pinMode(pedestrianRed, OUTPUT);    // Initialize pedestrian red light
-  pinMode(pushButton, INPUT_PULLUP); // Use internal pull-up resistor for button
-  
-  Serial.begin(9600); // Start serial communication
+  // Initialize Pins
+  pinMode(red, OUTPUT);
+  pinMode(yellow, OUTPUT);
+  pinMode(green, OUTPUT);
+  pinMode(pedestrianGreen, OUTPUT);
+  pinMode(pedestrianRed, OUTPUT);
+  pinMode(pushButton, INPUT_PULLUP); // Pull-up resistor for button
 
-  // Initial state: cars go (green), pedestrians stop (red)
+  // Start Serial Communication
+  Serial.begin(9600);
+
+  // Initial Lights: Cars green, pedestrians red
   digitalWrite(green, HIGH);
   digitalWrite(yellow, LOW);
   digitalWrite(red, LOW);
@@ -46,91 +47,81 @@ void setup() {
 }
 
 void loop() {
-  unsigned long currentMillis = millis();
+  unsigned long currentMillis = millis(); // Get the current time
 
-  // Read the current state of the push button
+  // Read Button and Handle Debounce
   currentButtonState = digitalRead(pushButton);
-
-  // Check if button press is stable (debounced)
   if (currentButtonState == LOW && lastButtonState == HIGH && (currentMillis - buttonPressTime) > debounceDelay) {
-    // Button pressed, register pedestrian request
-    pedestrianRequest = true;
-    buttonPressTime = currentMillis;  // Save the time of the valid button press
-    Serial.println("Pedestrian button pressed - Request received");
+    pedestrianRequest = true; // Register pedestrian request
+    buttonPressTime = currentMillis; // Record the button press time
+    Serial.println("Pedestrian button pressed!");
   }
+  lastButtonState = currentButtonState; // Update button state
 
-  // Save the current button state
-  lastButtonState = currentButtonState;
-
-  // Handle the traffic light state machine
+  // State Machine
   switch (currentState) {
     case RED:
+      // Cars stop, pedestrians wait
       if (pedestrianRequest) {
-        // If pedestrian request, change to YELLOW_TO_GREEN
-        currentState = YELLOW_TO_GREEN;
+        currentState = YELLOW_TO_GREEN;  // Transition to allow pedestrian crossing
         previousMillis = currentMillis;
         stateDuration = 2000; // Yellow light duration: 2 seconds
-        Serial.println("Changing to YELLOW_TO_GREEN");
+        Serial.println("Transitioning to YELLOW_TO_GREEN");
       }
+      // Lights
+      digitalWrite(red, HIGH);
+      digitalWrite(yellow, LOW);
+      digitalWrite(green, LOW);
+      digitalWrite(pedestrianGreen, LOW);
+      digitalWrite(pedestrianRed, HIGH);
       break;
 
     case YELLOW_TO_GREEN:
+      // Transition to GREEN
       if (currentMillis - previousMillis >= stateDuration) {
-        // Transition to GREEN after yellow
         currentState = GREEN;
         previousMillis = currentMillis;
-        stateDuration = 10000; // Pedestrian green light duration: 10 seconds
-        Serial.println("Changing to GREEN");
-        // Update the lights
-        digitalWrite(green, HIGH);
-        digitalWrite(yellow, LOW);
-        digitalWrite(red, LOW);
-        digitalWrite(pedestrianRed, LOW);  // Pedestrian can cross
-        digitalWrite(pedestrianGreen, HIGH);
-      } else {
-        // During YELLOW_TO_GREEN, yellow is on
-        digitalWrite(green, LOW);
-        digitalWrite(yellow, HIGH);
-        digitalWrite(red, LOW);
+        stateDuration = 10000; // Cars green duration: 10 seconds
+        Serial.println("Transitioning to GREEN");
       }
+      // Lights
+      digitalWrite(red, LOW);
+      digitalWrite(yellow, HIGH);
+      digitalWrite(green, LOW);
+      digitalWrite(pedestrianGreen, LOW);
+      digitalWrite(pedestrianRed, HIGH);
       break;
 
     case GREEN:
+      // Cars go, pedestrians cross
       if (currentMillis - previousMillis >= stateDuration) {
-        // Transition to YELLOW_TO_RED after green
-        currentState = YELLOW_TO_RED;
+        currentState = YELLOW_TO_RED; // Transition to stop cars
         previousMillis = currentMillis;
         stateDuration = 2000; // Yellow light duration: 2 seconds
-        Serial.println("Changing to YELLOW_TO_RED");
-        // Update the lights
-        digitalWrite(green, LOW);
-        digitalWrite(yellow, HIGH);
-        digitalWrite(red, LOW);
-        digitalWrite(pedestrianGreen, LOW);  // Pedestrian must wait
-        digitalWrite(pedestrianRed, HIGH);
+        Serial.println("Transitioning to YELLOW_TO_RED");
       }
+      // Lights
+      digitalWrite(red, LOW);
+      digitalWrite(yellow, LOW);
+      digitalWrite(green, HIGH);
+      digitalWrite(pedestrianGreen, HIGH); // Pedestrians cross
+      digitalWrite(pedestrianRed, LOW);
       break;
 
     case YELLOW_TO_RED:
+      // Transition to RED
       if (currentMillis - previousMillis >= stateDuration) {
-        // After yellow, transition to RED
-        currentState = RED;
-        pedestrianRequest = false; // Reset the pedestrian request
+        currentState = RED; // Return to RED state
         previousMillis = currentMillis;
-        stateDuration = 0; // No specific duration for RED state
-        Serial.println("Changing to RED");
-        // Update the lights
-        digitalWrite(red, HIGH);
-        digitalWrite(yellow, LOW);
-        digitalWrite(green, LOW);
-        digitalWrite(pedestrianGreen, LOW);  // Pedestrian must wait
-        digitalWrite(pedestrianRed, HIGH);
-      } else {
-        // During YELLOW_TO_RED, yellow is on
-        digitalWrite(green, LOW);
-        digitalWrite(yellow, HIGH);
-        digitalWrite(red, LOW);
+        pedestrianRequest = false; // Reset pedestrian request
+        Serial.println("Transitioning to RED");
       }
+      // Lights
+      digitalWrite(red, LOW);
+      digitalWrite(yellow, HIGH);
+      digitalWrite(green, LOW);
+      digitalWrite(pedestrianGreen, LOW);
+      digitalWrite(pedestrianRed, HIGH); // Pedestrians wait
       break;
   }
 }

@@ -1,0 +1,199 @@
+// Pin Assignments
+int red = 8;             
+int yellow = 10;         
+int green = 12;          
+int pedestrianGreen = 9; // Pedestrian green light
+int pedestrianRed = 11;  // Pedestrian red light
+int pushButton = 2;      // Push button for pedestrian request 
+
+// Mode Selection
+bool mode = true; // Set to false for Interrupt-based mode (true for polling)
+
+// Enum for Traffic Light States
+enum TrafficLightState {
+  CAR_GREEN,             // Cars moving, pedestrians waiting
+  YELLOW_TO_PED_GREEN,   // Transition to pedestrian green
+  PED_GREEN,             // Pedestrians moving, cars stopped
+  YELLOW_TO_CAR_GREEN    // Transition to car green
+};
+
+// State Variables
+TrafficLightState currentState = CAR_GREEN; // Start with cars moving
+unsigned long previousMillis = 0;          // Tracks the time since the last state change
+unsigned long stateDuration = 0;           // Duration of the current state
+unsigned long buttonPressTime = 0;         // Tracks button press time
+const unsigned long debounceDelay = 300;   // Debounce delay for button
+
+// Button State
+bool pedestrianRequest = false; // Tracks if a pedestrian has requested to cross
+bool lastButtonState = HIGH;    
+bool currentButtonState = HIGH; 
+bool messagePrinted = false;    
+bool modePrinted = false;       
+
+void setup() {
+ 
+  pinMode(red, OUTPUT);
+  pinMode(yellow, OUTPUT);
+  pinMode(green, OUTPUT);
+  pinMode(pedestrianGreen, OUTPUT);
+  pinMode(pedestrianRed, OUTPUT);
+  pinMode(pushButton, INPUT_PULLUP); 
+  
+  Serial.begin(9600);
+
+  digitalWrite(green, HIGH);
+  digitalWrite(yellow, LOW);
+  digitalWrite(red, LOW);
+  digitalWrite(pedestrianGreen, LOW);
+  digitalWrite(pedestrianRed, HIGH);
+
+  if (mode && !modePrinted) {
+    Serial.println("Polling Mode is ACTIVE");
+    modePrinted = true;
+  } else if (!mode && !modePrinted) {
+    Serial.println("Interrupt Mode is ACTIVE");
+    modePrinted = true;
+    
+    attachInterrupt(digitalPinToInterrupt(pushButton), buttonPressedInterrupt, FALLING); // Interrupt on button press
+  }
+
+  delay(1000); // Give some time for the user to see the mode
+}
+
+// Interrupt function to handle the button press
+void buttonPressedInterrupt() {
+  pedestrianRequest = true; // Set the flag to indicate a button press
+  Serial.println("Interrupt Mode: Button Pressed! Pedestrian Request Triggered.");
+}
+
+void loop() {
+  unsigned long currentMillis = millis();
+
+  // Polling Mode: Continuously check the button state
+  if (mode) {
+    pollingMode(currentMillis);
+  } else {
+    // In interrupt mode, the button press is handled via interrupt
+    stateMachine(currentMillis);  // Traffic light state machine
+  }
+}
+
+// Polling Mode function: Detect button press
+void pollingMode(unsigned long currentMillis) {
+  // Only print a message once every time polling mode checks for the button
+  if (!messagePrinted) {
+    Serial.println("Polling Mode Active: Checking button press...");
+    messagePrinted = true; // Ensure it only prints once per loop
+  }
+
+  currentButtonState = digitalRead(pushButton);
+
+  // Check for a button press (LOW state means pressed, HIGH means released)
+  if (currentButtonState == LOW && lastButtonState == HIGH && (currentMillis - buttonPressTime) > debounceDelay) {
+    pedestrianRequest = true; // Register pedestrian request
+    buttonPressTime = currentMillis; // Record the button press time
+    Serial.println("Polling Mode: Pedestrian button pressed! Request received.");
+    messagePrinted = false;  // Allow a new message to be printed after the debounce delay
+  }
+
+  // Update the last button state
+  lastButtonState = currentButtonState;
+
+  // State Machine for traffic lights
+  stateMachine(currentMillis);
+}
+
+// State Machine for traffic lights
+void stateMachine(unsigned long currentMillis) {
+  switch (currentState) {
+    case CAR_GREEN:
+      if (!messagePrinted) {
+        Serial.println("State: CAR_GREEN. Cars moving for 10 seconds. Pedestrians waiting.");
+        messagePrinted = true;
+      }
+
+      // Cars moving, pedestrians waiting
+      digitalWrite(red, LOW); 
+      digitalWrite(yellow, LOW);
+      digitalWrite(green, HIGH); 
+      digitalWrite(pedestrianGreen, LOW); 
+      digitalWrite(pedestrianRed, HIGH);  
+
+      if (pedestrianRequest) {
+        currentState = YELLOW_TO_PED_GREEN; // Transition to pedestrian green
+        previousMillis = currentMillis;
+        stateDuration = 2000; // Yellow light duration: 2 seconds
+        Serial.println("Transitioning to YELLOW_TO_PED_GREEN.");
+        pedestrianRequest = false; // Reset pedestrian request immediately
+        messagePrinted = false;    
+      }
+      break;
+
+    case YELLOW_TO_PED_GREEN:
+      if (!messagePrinted) {
+        Serial.println("State: YELLOW_TO_PED_GREEN. Cars preparing to stop.");
+        messagePrinted = true;
+      }
+
+      // Cars preparing to stop
+      digitalWrite(red, LOW); 
+      digitalWrite(yellow, HIGH); 
+      digitalWrite(green, LOW);  
+      digitalWrite(pedestrianGreen, LOW);
+      digitalWrite(pedestrianRed, HIGH);
+
+      if (currentMillis - previousMillis >= stateDuration) {
+        currentState = PED_GREEN; 
+        previousMillis = currentMillis;
+        stateDuration = 10000; // Pedestrian green light duration: 10 seconds
+        Serial.println("Transitioning to PED_GREEN. Pedestrians can cross.");
+        messagePrinted = false;    
+      }
+      break;
+
+    case PED_GREEN:
+      if (!messagePrinted) {
+        Serial.println("State: PED_GREEN. Pedestrians moving for 10 seconds. Cars stopped.");
+        messagePrinted = true;
+      }
+
+      // Pedestrians moving, cars stopped
+      digitalWrite(red, HIGH); 
+      digitalWrite(yellow, LOW);
+      digitalWrite(green, LOW); 
+      digitalWrite(pedestrianGreen, HIGH); 
+      digitalWrite(pedestrianRed, LOW);    
+
+      if (currentMillis - previousMillis >= stateDuration) {
+        currentState = YELLOW_TO_CAR_GREEN; // Transition to car green
+        previousMillis = currentMillis;
+        stateDuration = 2000; // Yellow light duration: 2 seconds
+        Serial.println("Transitioning to YELLOW_TO_CAR_GREEN.");
+        messagePrinted = false;    
+      }
+      break;
+
+    case YELLOW_TO_CAR_GREEN:
+      if (!messagePrinted) {
+        Serial.println("State: YELLOW_TO_CAR_GREEN. Pedestrians preparing to stop.");
+        messagePrinted = true;
+      }
+
+      // Pedestrians preparing to stop
+      digitalWrite(red, HIGH); 
+      digitalWrite(yellow, HIGH);
+      digitalWrite(green, LOW);  
+      digitalWrite(pedestrianGreen, LOW); 
+      digitalWrite(pedestrianRed, HIGH);  
+
+      if (currentMillis - previousMillis >= stateDuration) {
+        currentState = CAR_GREEN; // Cars move
+        previousMillis = currentMillis;
+        stateDuration = 10000; // Car green light duration: 10 seconds
+        Serial.println("Transitioning to CAR_GREEN. Cars can move.");
+        messagePrinted = false;    
+      }
+      break;
+  }
+}
